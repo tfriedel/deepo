@@ -17,6 +17,8 @@
 [caffe](http://caffe.berkeleyvision.org),
 [torch](http://torch.ch/).
 
+This is a fork of [ufoym/deepo](https://github.com/ufoym/deepo), built on python 3.6 instead of 3.5 and with some updated frameworks. 
+
 - [Quick Start](#Quick-Start)
   - [Installation](#Installation)
   - [Usage](#Usage)
@@ -42,12 +44,12 @@ You can either directly download the image from Docker Hub, or build the image y
 
 ##### Option 1: Get the image from Docker Hub (recommended)
 ```bash
-docker pull ufoym/deepo
+docker pull tfriedel/deepo
 ```
 ##### Option 2: Build the Docker image locally
 ```bash
-git clone https://github.com/ufoym/deepo.git
-cd deepo && docker build -t ufoym/deepo .
+git clone https://github.com/tfriedel/deepo.git
+cd deepo && docker build -t tfriedel/deepo .
 ```
 Note that this may take several hours as it compiles a few libraries from scratch.
 
@@ -57,18 +59,18 @@ Note that this may take several hours as it compiles a few libraries from scratc
 
 Now you can try this command:
 ```bash
-nvidia-docker run --rm ufoym/deepo nvidia-smi
+nvidia-docker run --rm tfriedel/deepo nvidia-smi
 ```
 This should work and enables Deepo to use the GPU from inside a docker container.
 If this does not work, search [the issues section on the nvidia-docker GitHub](https://github.com/NVIDIA/nvidia-docker/issues) -- many solutions are already documented. To get an interactive shell to a container that will not be automatically deleted after you exit do
 
 ```bash
-nvidia-docker run -it ufoym/deepo bash
+nvidia-docker run -it tfriedel/deepo bash
 ```
 
 If you want to share your data and configurations between the host (your machine or VM) and the container in which you are using Deepo, use the -v option, e.g.
 ```bash
-nvidia-docker run -it -v /host/data:/data -v /host/config:/config ufoym/deepo bash
+nvidia-docker run -it -v /host/data:/data -v /host/config:/config tfriedel/deepo bash
 ```
 This will make `/host/data` from the host visible as `/data` in the container, and `/host/config` as `/config`. Such isolation reduces the chances of your containerized experiments overwriting or using wrong data.
 
@@ -81,7 +83,7 @@ _You are now ready to begin your journey._
 ```python
 >>> import tensorflow
 >>> print(tensorflow.__name__, tensorflow.__version__)
-tensorflow 1.3.0
+tensorflow 1.4.0
 ```
 
 #### sonnet
@@ -89,7 +91,7 @@ tensorflow 1.3.0
 ```python
 >>> import sonnet
 >>> print(sonnet.__name__, sonnet.__path__)
-sonnet ['/usr/local/lib/python3.5/dist-packages/sonnet']
+sonnet ['/usr/local/lib/python3.6/dist-packages/sonnet']
 ```
 
 #### pytorch
@@ -105,7 +107,7 @@ torch 0.2.0_3
 ```python
 >>> import keras
 >>> print(keras.__name__, keras.__version__)
-keras 2.0.8
+keras 2.1.1
 ```
 
 #### mxnet
@@ -113,7 +115,7 @@ keras 2.0.8
 ```python
 >>> import mxnet
 >>> print(mxnet.__name__, mxnet.__version__)
-mxnet 0.11.0
+mxnet 0.12.0
 ```
 
 #### cntk
@@ -137,7 +139,7 @@ chainer 3.0.0
 ```python
 >>> import theano
 >>> print(theano.__name__, theano.__version__)
-theano 0.10.0beta4+14.gb6e3768
+theano 1.0.0rc1+11.ge47f1c9
 ```
 
 #### lasagne
@@ -197,4 +199,4 @@ caffe version 1.0.0
 
 ## Licensing
 
-Deepo is [MIT licensed](https://github.com/ufoym/deepo/blob/master/LICENSE).
+Deepo is [MIT licensed](https://github.com/tfriedel/deepo/blob/master/LICENSE).
