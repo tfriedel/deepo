@@ -23,6 +23,9 @@ LABEL maintainer="Ming <i@ufoym.com>"
 
      
 
+COPY caffe.patch /tmp/caffe.patch
+COPY tensorflow-1.4.0-cp36-cp36m-linux_x86_64.whl /tmp/tensorflow-1.4.0-cp36-cp36m-linux_x86_64.whl
+
 RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
     PIP_INSTALL="pip --no-cache-dir install --upgrade" && \
     GIT_CLONE="git clone --depth 10" && \
@@ -60,16 +63,14 @@ RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
     $GIT_CLONE https://github.com/Kitware/CMake ~/cmake && \
     cd ~/cmake && \
     ./bootstrap --prefix=/usr/local && \
-    make -j"$(nproc)" install 
+    make -j"$(nproc)" install \
+    && \
 
 
 # =================================
 # python3
 # =================================
 
-RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
-    PIP_INSTALL="pip3 --no-cache-dir install --upgrade" && \
-    GIT_CLONE="git clone --depth 10" && \
     apt-get update && \
     DEBIAN_FRONTEND=noninteractive $APT_INSTALL \
         software-properties-common \
@@ -92,6 +93,20 @@ RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
         matplotlib \
         Cython \
         && \
+
+# =================================
+# boost
+# =================================
+    BOOST_VERSION="1.65.1" && \
+    BOOST_VERSION_LINK="1_65_1" && \
+    wget http://downloads.sourceforge.net/project/boost/boost/$BOOST_VERSION/boost_$BOOST_VERSION_LINK.tar.gz \
+    && tar -xvzf boost_$BOOST_VERSION_LINK.tar.gz \
+    && cd boost_$BOOST_VERSION_LINK \
+    && ./bootstrap.sh \
+    && ./b2 --with-python \
+    && ./b2 install \
+    && \  
+
 
 # =================================
 # opencv
@@ -122,13 +137,13 @@ RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
           .. && \
     make -j"$(nproc)" install && \
 
-# =================================
+# ================================
 # tensorflow
-# =================================
-
+# ================================
     $PIP_INSTALL \
-        tensorflow_gpu \
-        && \
+        /tmp/tensorflow-1.4.0-cp36-cp36m-linux_x86_64.whl && \
+    rm /tmp/tensorflow-1.4.0-cp36-cp36m-linux_x86_64.whl \
+    && \
 
 # =================================
 # sonnet
@@ -220,48 +235,43 @@ RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
     $GIT_CLONE https://github.com/Lasagne/Lasagne ~/lasagne && \
     cd ~/lasagne && \
     $PIP_INSTALL \
-        .
+        . && \
 
-ENV BOOST_VERSION 1.65.1
-ENV BOOST_VERSION_LINK 1_65_1
+# =================================
+# caffe
+# =================================
+    $GIT_CLONE https://github.com/NVIDIA/nccl && \
+    cd nccl; make -j"$(nproc)" install; cd ..; rm -rf nccl && \
 
-#### installing boost
-RUN wget http://downloads.sourceforge.net/project/boost/boost/$BOOST_VERSION/boost_$BOOST_VERSION_LINK.tar.gz \
-    && tar -xvzf boost_$BOOST_VERSION_LINK.tar.gz \
-    && cd boost_$BOOST_VERSION_LINK \
-    && ./bootstrap.sh \
-    && ./b2 \
-    && ./b2 install   
+    $GIT_CLONE https://github.com/BVLC/caffe ~/caffe && cd ~/caffe && \
+    git apply /tmp/caffe.patch && rm /tmp/caffe.patch && \
+    mkdir ~/caffe/build && cd ~/caffe/build && \
+    cmake -D CMAKE_BUILD_TYPE=RELEASE \
+          -D CMAKE_INSTALL_PREFIX=/usr/local \
+          -D USE_CUDNN=1 \
+          -D USE_NCCL=1 \
+          -D python_version=3 \
+          -D CUDA_NVCC_FLAGS=--Wno-deprecated-gpu-targets \
+          -Wno-dev \
+          .. && \
+    make -j"$(nproc)" install && \
 
-RUN cd boost_$BOOST_VERSION_LINK \
-    && ./b2 --with-python \
-    && ./b2 install
+    # fix ValueError caused by python-dateutil 1.x
+    sed -i 's/,<2//g' ~/caffe/python/requirements.txt && \
 
-RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
-    PIP_INSTALL="pip3 --no-cache-dir install --upgrade --force-reinstall" && \
-    GIT_CLONE="git clone --depth 10" && \
-    apt-get update && \
-    DEBIAN_FRONTEND=noninteractive $APT_INSTALL \
-        software-properties-common \
-        curl && \
-    DEBIAN_FRONTEND=noninteractive \
-    pip3 --no-cache-dir install --upgrade pip && \
     $PIP_INSTALL \
-        setuptools \
-        numpy \
-        scipy \
-        pandas \
-        scikit-learn \
-        matplotlib \
-        Cython 
+        -r ~/caffe/python/requirements.txt && \
+
+    mv /usr/local/python/caffe /usr/local/lib/python3.6/dist-packages/ && \
+    rm -rf /usr/local/python \
+    && \
+
+
 
 # =================================
 # torch
 # =================================
 
-RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
-    PIP_INSTALL="pip3 --no-cache-dir install --upgrade" && \
-    GIT_CLONE="git clone --depth 10" && \
     $GIT_CLONE https://github.com/torch/distro.git ~/torch --recursive&& \
 
     cd ~/torch/exe/luajit-rocks && \
@@ -293,59 +303,22 @@ RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
 # ================================
 # Jupyter
 # ================================
-    $PIP_INSTALL jupyter
+    $PIP_INSTALL jupyter && \
     # Allow access outside container.
-RUN mkdir /root/.jupyter
-RUN echo "c.NotebookApp.ip = '*'" \
+    mkdir /root/.jupyter && \
+    echo "c.NotebookApp.ip = '*'" \
              "\nc.NotebookApp.open_browser = False" \
              "\nc.NotebookApp.token = ''" \
-             > /root/.jupyter/jupyter_notebook_config.py
-EXPOSE 8888
-
-# ================================
-# tensorflow
-# ================================
-COPY tensorflow-1.4.0-cp36-cp36m-linux_x86_64.whl /tmp/tensorflow-1.4.0-cp36-cp36m-linux_x86_64.whl
-RUN pip3 --no-cache-dir install --upgrade /tmp/tensorflow-1.4.0-cp36-cp36m-linux_x86_64.whl && rm /tmp/tensorflow-1.4.0-cp36-cp36m-linux_x86_64.whl
-
-# =================================
-# caffe
-# =================================
-COPY caffe.patch /tmp/caffe.patch
-RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
-    PIP_INSTALL="pip3 --no-cache-dir install --upgrade" && \
-    GIT_CLONE="git clone --depth 10" && \
-    $GIT_CLONE https://github.com/NVIDIA/nccl && \
-    cd nccl; make -j"$(nproc)" install; cd ..; rm -rf nccl && \
-
-    $GIT_CLONE https://github.com/BVLC/caffe ~/caffe && cd ~/caffe && \
-    git apply /tmp/caffe.patch && rm /tmp/caffe.patch && \
-    mkdir ~/caffe/build && cd ~/caffe/build && \
-    cmake -D CMAKE_BUILD_TYPE=RELEASE \
-          -D CMAKE_INSTALL_PREFIX=/usr/local \
-          -D USE_CUDNN=1 \
-          -D USE_NCCL=1 \
-          -D python_version=3 \
-          -D CUDA_NVCC_FLAGS=--Wno-deprecated-gpu-targets \
-          -Wno-dev \
-          .. && \
-    make -j"$(nproc)" install && \
-
-    # fix ValueError caused by python-dateutil 1.x
-    sed -i 's/,<2//g' ~/caffe/python/requirements.txt && \
-
-    $PIP_INSTALL \
-        -r ~/caffe/python/requirements.txt && \
-
-    mv /usr/local/python/caffe /usr/local/lib/python3.6/dist-packages/ && \
-    rm -rf /usr/local/python 
+             > /root/.jupyter/jupyter_notebook_config.py \
+    && \
 
 
 # =================================
 # config & cleanup
 # =================================
 
-RUN ldconfig && \
+    ldconfig && \
     apt-get clean && \
     apt-get autoremove && \
     rm -rf /var/lib/apt/lists/* /tmp/*  ~/*
+EXPOSE 8888
